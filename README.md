@@ -427,6 +427,10 @@ Fixed-window counter in Redis, 100 requests/minute/user (`middleware/rateLimiter
 - Per the PDF's own RBAC table (Sales User: "create orders; view products" - no mention of viewing
   orders), `GET /orders` is restricted to ADMIN/MANAGER only; Sales Users only get the order
   confirmation returned directly from their own `POST /orders` call.
+- **Currency is Indian Rupees (INR).** The backend stores plain `DECIMAL` amounts (currency-agnostic);
+  the frontend formats every price/total with `Intl.NumberFormat('en-IN', { currency: 'INR' })`
+  (`frontend/src/utils/format.js`), which renders the `₹` symbol with Indian lakh/crore digit
+  grouping (e.g. `₹1,00,000.00`).
 
 ---
 
