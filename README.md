@@ -201,6 +201,14 @@ So for `Product A = 5`, two simultaneous `Order 1: qty 5` / `Order 2: qty 5` req
 against 0 remaining stock (0 rows affected) and fails with `409 Conflict - Insufficient stock`.
 Exactly one order succeeds; stock never goes negative.
 
+> **Verified live** against a real MySQL-wire-compatible InnoDB database (see §15): firing two
+> genuinely concurrent `POST /orders` requests for `quantity: 5` each against the seeded Product A
+> (starting stock 5) returned one `201 COMPLETED` order and one `409 "Insufficient stock for
+> product 'Product A' (requested 5)"`. Final `available_quantity` was exactly `0`. The `orders`
+> table ended up with **only** the winning order row - the losing request's transaction left no
+> partial `orders`/`order_items`/`journal_entries` rows at all, confirming the rollback in §6 is
+> complete, not just the stock check.
+
 **Why atomic UPDATE over `SELECT ... FOR UPDATE` + application check:** fewer round trips (one
 statement instead of a locking SELECT followed by an UPDATE), and correctness doesn't depend on the
 application remembering to re-check the value after acquiring the lock - the database enforces the
@@ -290,7 +298,12 @@ Implemented for **both** suggested endpoints:
   error as a cache miss (`safeGet` returns `null`, `safeSet`/`safeDel` just log a warning). The
   request falls through to MySQL every time - the API stays fully correct, just slower. The
   rate limiter (`middleware/rateLimiter.middleware.js`) fails **open** the same way, so a Redis
-  outage never takes the whole API down.
+  outage never takes the whole API down. The ioredis client is also configured with
+  `enableOfflineQueue: false` (`config/redis.js`) - without it, a command issued while disconnected
+  sits in an offline queue and only fails after working through the reconnect backoff, which was
+  observed live to add several *seconds* of latency per request with Redis down (§15). With it,
+  a command fails immediately when the connection isn't ready, so "Redis is down" degrades
+  correctness-preserving performance in milliseconds, not seconds.
 
 ---
 
@@ -354,24 +367,25 @@ GET /orders?page=1&limit=20&status=COMPLETED
 - Only the columns actually needed are selected on the `order_items` include
   (`id, productId, quantity, unitPrice, subtotal`) instead of `SELECT *`.
 
-**Illustrative `EXPLAIN`** for the composite-index query (this sandbox has no local MySQL/Docker
-runtime available to execute it live - reproduce it yourself once containers are up with
-`EXPLAIN SELECT * FROM orders WHERE status='COMPLETED' ORDER BY created_at DESC LIMIT 20;` in a
-mysql client, e.g. `docker exec -it <mysql-container> mysql -u erp_user -p mini_erp`):
+**Real `EXPLAIN`**, captured live against this schema (migrated + seeded locally on MariaDB
+10.4.32, MySQL-wire-compatible, via `mysql -u root mini_erp`):
 
 ```
-+----+-------------+--------+------+-----------------------------------------------+---------------------------+---------+-------+------+----------+-----------------------+
-| id | select_type | table  | type | possible_keys                                  | key                        | key_len | ref   | rows | filtered | Extra                  |
-+----+-------------+--------+------+-----------------------------------------------+---------------------------+---------+-------+------+----------+-----------------------+
-|  1 | SIMPLE      | orders | ref  | idx_orders_status,idx_orders_status_created_at | idx_orders_status_created_at | 3       | const |   20 |   100.00 | Using index condition  |
-+----+-------------+--------+------+-----------------------------------------------+---------------------------+---------+-------+------+----------+-----------------------+
+mysql> EXPLAIN SELECT * FROM orders WHERE status='COMPLETED' ORDER BY created_at DESC LIMIT 20;
++----+-------------+--------+------+------------------------------------------------+-------------------------------+---------+-------+------+-------------+
+| id | select_type | table  | type | possible_keys                                   | key                           | key_len | ref   | rows | Extra       |
++----+-------------+--------+------+------------------------------------------------+-------------------------------+---------+-------+------+-------------+
+|  1 | SIMPLE      | orders | ref  | idx_orders_status,idx_orders_status_created_at  | idx_orders_status_created_at | 1       | const |    1 | Using where |
++----+-------------+--------+------+------------------------------------------------+-------------------------------+---------+-------+------+-------------+
 ```
 
-Expected reasoning: `type: ref` (equality lookup on the `status` prefix of the composite index,
-not a full scan), `key: idx_orders_status_created_at` (MySQL prefers the composite index over the
-single-column `idx_orders_status` because it also satisfies the `ORDER BY created_at DESC` for free
-by scanning the index backwards - no separate `Using filesort`), and `rows` close to `limit` because
-the `LIMIT 20` short-circuits the scan.
+Reasoning: `type: ref` (an equality lookup on the `status` prefix of the composite index, not a
+table scan), `key: idx_orders_status_created_at` (the optimizer picked the composite index over the
+single-column `idx_orders_status` because it also satisfies `ORDER BY created_at DESC` for free by
+walking the index in reverse - notably **no `Using filesort`** in `Extra`). `rows: 1` here simply
+reflects the small seeded dataset in this environment (one `COMPLETED` order at capture time); the
+index-selection reasoning holds regardless of table size - it's what keeps this query from becoming
+a full table scan + sort as `orders` grows.
 
 ---
 
@@ -446,3 +460,30 @@ Fixed-window counter in Redis, 100 requests/minute/user (`middleware/rateLimiter
    available quantity should read `0`, never negative.
 4. Watch the frontend's Inventory page (or a raw Socket.IO client on `inventory_updated`) update
    live the moment the winning order commits.
+
+### What was actually run and verified during development
+
+Docker wasn't available in the development sandbox, so the backend was instead migrated/seeded
+against a real local MySQL-wire-compatible server (MariaDB 10.4 via XAMPP) with Redis intentionally
+absent, and driven end-to-end with `curl`. This caught three real bugs, since fixed (see the
+"three bugs found by running the app" commit):
+
+- Joi's default email check rejected the seeded `@erp.test` demo addresses (reserved TLD) -
+  login/register always failed validation until `tlds: { allow: false }` was added.
+- `config.js` used `||` for `DB_PASSWORD`, which silently discarded an intentionally empty password
+  (a local root/no-password MySQL setup) - switched to `??`.
+- With Redis down, `ioredis`'s offline command queue made **every** request wait through the full
+  reconnect backoff (up to ~12s observed on `GET /products`) before falling back to the database -
+  technically graceful, but not usably fast. `enableOfflineQueue: false` fixed it; the same request
+  now returns in ~80ms with Redis still down.
+
+After those fixes, this was confirmed live: the exact "5 units, two orders of 5" race (one `201`,
+one clean `409`, final stock `0`, and the losing request left zero rows anywhere - no `orders`,
+`order_items`, or `journal_entries` row at all, not even a `FAILED`-status one); RBAC on every
+route (403s for Sales User on product mutation and `GET /orders`); add-stock and adjust (including
+the negative-stock guard rejecting an over-large adjustment with `409`); bulk CSV import against a
+file with valid, missing-field, invalid-price, invalid-stock, and duplicate-SKU rows (4 imported,
+4 rejected, matching exactly); and `GET /orders` filtering by status/customer. Redis itself
+(cache hits and the rate-limit counter actually incrementing) was **not** live-tested - no Redis
+instance was available in the sandbox - so that path is verified by code review only; the fallback
+path (Redis absent) was verified live as described above.
