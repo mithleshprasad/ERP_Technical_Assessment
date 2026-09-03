@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Memoized so consumers relying on referential stability (e.g. a
-  // memoized Navbar) don't re-render every time an unrelated provider
+  // memoized Sidebar/Topbar) don't re-render every time an unrelated provider
   // ancestor re-renders.
   const value = useMemo(() => ({ user, signIn, signOut, isAuthenticated: !!user }), [user, signIn, signOut]);
 

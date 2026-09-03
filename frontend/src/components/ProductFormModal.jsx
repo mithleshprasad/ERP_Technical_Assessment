@@ -19,24 +19,27 @@ export default function ProductFormModal({ initial, onClose, onSubmit, isSubmitt
     <Modal title={initial ? 'Edit Product' : 'New Product'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
+          <label className="label">Name</label>
           <input className="input" value={form.name} onChange={handleChange('name')} required />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">SKU</label>
+          <label className="label">SKU</label>
           <input className="input" value={form.sku} onChange={handleChange('sku')} required />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Price</label>
-          <input
-            className="input"
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.price}
-            onChange={handleChange('price')}
-            required
-          />
+          <label className="label">Price</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+            <input
+              className="input pl-7"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.price}
+              onChange={handleChange('price')}
+              required
+            />
+          </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>

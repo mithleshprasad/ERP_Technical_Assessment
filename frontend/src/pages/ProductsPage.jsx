@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { Package, Plus, Search } from 'lucide-react';
 import { createProduct, deleteProduct, fetchProducts, updateProduct } from '../api/productApi';
 import { useAuth } from '../context/AuthContext';
 import useDebounce from '../hooks/useDebounce';
@@ -8,6 +9,7 @@ import Pagination from '../components/Pagination';
 import Spinner from '../components/Spinner';
 import ProductRow from '../components/ProductRow';
 import ProductFormModal from '../components/ProductFormModal';
+import EmptyState from '../components/EmptyState';
 
 const LIMIT = 10;
 
@@ -71,18 +73,22 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Products</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Products</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{data?.pagination?.total ?? 0} total products</p>
+        </div>
         {canManage && (
           <button className="btn-primary" onClick={() => setEditing({})}>
-            + New Product
+            <Plus size={16} /> New Product
           </button>
         )}
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 relative max-w-xs">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
-          className="input max-w-xs"
+          className="input pl-9"
           placeholder="Search by name..."
           value={search}
           onChange={(e) => {
@@ -95,6 +101,8 @@ export default function ProductsPage() {
       <div className="card overflow-x-auto">
         {isLoading ? (
           <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState icon={Package} title="No products found" description="Try a different search, or create a new product." />
         ) : (
           <table className="table-base">
             <thead>
@@ -106,7 +114,7 @@ export default function ProductsPage() {
                 <th></th>
               </tr>
             </thead>
-            <tbody className={`divide-y divide-slate-100 ${isFetching ? 'opacity-60' : ''}`}>
+            <tbody className={isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
               {rows.map((product) => (
                 <ProductRow
                   key={product.id}
@@ -117,13 +125,6 @@ export default function ProductsPage() {
                   onDelete={handleDelete}
                 />
               ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center text-slate-400 py-8">
-                    No products found
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         )}

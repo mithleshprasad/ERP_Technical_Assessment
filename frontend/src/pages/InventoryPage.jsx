@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { Boxes, Radio, Search } from 'lucide-react';
 import { fetchProducts } from '../api/productApi';
 import { addStock, adjustStock } from '../api/inventoryApi';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +10,7 @@ import Pagination from '../components/Pagination';
 import Spinner from '../components/Spinner';
 import InventoryRow from '../components/InventoryRow';
 import StockModal from '../components/StockModal';
+import EmptyState from '../components/EmptyState';
 
 const LIMIT = 10;
 
@@ -56,14 +58,22 @@ export default function InventoryPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Inventory</h1>
-      <p className="text-sm text-slate-500 mb-4">
-        Quantities update live via WebSocket as orders and stock adjustments happen elsewhere.
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Inventory</h1>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
+          <Radio size={12} className="animate-pulse" /> Live updates
+        </span>
+      </div>
+      <p className="text-sm text-slate-500 mb-6">
+        Quantities update automatically over WebSocket as orders and stock adjustments happen elsewhere.
       </p>
 
-      <div className="mb-4">
+      <div className="mb-4 relative max-w-xs">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
-          className="input max-w-xs"
+          className="input pl-9"
           placeholder="Search by name..."
           value={search}
           onChange={(e) => {
@@ -76,6 +86,8 @@ export default function InventoryPage() {
       <div className="card overflow-x-auto">
         {isLoading ? (
           <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState icon={Boxes} title="No products found" description="Try a different search term." />
         ) : (
           <table className="table-base">
             <thead>
@@ -87,17 +99,10 @@ export default function InventoryPage() {
                 <th></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {rows.map((product) => (
                 <InventoryRow key={product.id} product={product} canManage={canManage} onManage={handleManage} />
               ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center text-slate-400 py-8">
-                    No products found
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         )}
