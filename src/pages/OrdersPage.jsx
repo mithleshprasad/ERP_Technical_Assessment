@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ShoppingCart } from 'lucide-react';
 import { fetchOrders } from '../api/orderApi';
 import useDebounce from '../hooks/useDebounce';
 import Pagination from '../components/Pagination';
 import Spinner from '../components/Spinner';
 import OrderRow from '../components/OrderRow';
+import EmptyState from '../components/EmptyState';
 
 const LIMIT = 10;
 const STATUSES = ['', 'PENDING', 'COMPLETED', 'FAILED', 'CANCELLED'];
@@ -37,11 +39,14 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Orders</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
+        <p className="text-sm text-slate-500 mt-0.5">{data?.pagination?.total ?? 0} total orders</p>
+      </div>
 
       <div className="card p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
+          <label className="label">Status</label>
           <select className="input" value={status} onChange={(e) => updateAndResetPage(setStatus)(e.target.value)}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -51,15 +56,15 @@ export default function OrdersPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Customer ID</label>
+          <label className="label">Customer ID</label>
           <input className="input" value={customerId} onChange={(e) => updateAndResetPage(setCustomerId)(e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">From</label>
+          <label className="label">From</label>
           <input type="date" className="input" value={startDate} onChange={(e) => updateAndResetPage(setStartDate)(e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">To</label>
+          <label className="label">To</label>
           <input type="date" className="input" value={endDate} onChange={(e) => updateAndResetPage(setEndDate)(e.target.value)} />
         </div>
       </div>
@@ -67,6 +72,8 @@ export default function OrdersPage() {
       <div className="card overflow-x-auto">
         {isLoading ? (
           <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState icon={ShoppingCart} title="No orders found" description="Try adjusting the filters above." />
         ) : (
           <table className="table-base">
             <thead>
@@ -79,17 +86,10 @@ export default function OrdersPage() {
                 <th>Created</th>
               </tr>
             </thead>
-            <tbody className={`divide-y divide-slate-100 ${isFetching ? 'opacity-60' : ''}`}>
+            <tbody className={isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
               {rows.map((order) => (
                 <OrderRow key={order.id} order={order} />
               ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center text-slate-400 py-8">
-                    No orders found
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         )}

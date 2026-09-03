@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { fetchProducts } from '../api/productApi';
 import { createOrder } from '../api/orderApi';
+import { formatCurrency } from '../utils/format';
 
 function emptyItem() {
   return { key: crypto.randomUUID(), productId: '', quantity: 1 };
@@ -67,72 +69,78 @@ export default function CreateOrderPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-4">New Sales Order</h1>
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">New Sales Order</h1>
+      <p className="text-sm text-slate-500 mb-6">Reserve stock and create an order in one step.</p>
 
-      <form onSubmit={handleSubmit} className="card p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="card p-6 space-y-5">
         <div>
-          <label className="block text-sm font-medium mb-1">Customer ID</label>
+          <label className="label">Customer ID</label>
           <input className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required />
         </div>
 
         <div className="space-y-3">
+          <label className="label !mb-0">Line items</label>
           {items.map((item) => (
-            <div key={item.key} className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-slate-500 mb-1">Product</label>
-                <select
-                  className="input"
-                  value={item.productId}
-                  onChange={(e) => updateItem(item.key, 'productId', e.target.value)}
-                  required
-                >
-                  <option value="">Select a product</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.sku}) - ${Number(p.price).toFixed(2)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-28">
-                <label className="block text-xs font-medium text-slate-500 mb-1">Qty</label>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(item.key, 'quantity', e.target.value)}
-                  required
-                />
-              </div>
-              <button type="button" className="btn-secondary" onClick={() => removeRow(item.key)} disabled={items.length === 1}>
-                Remove
+            <div key={item.key} className="flex gap-2 items-center bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+              <select
+                className="input flex-1"
+                value={item.productId}
+                onChange={(e) => updateItem(item.key, 'productId', e.target.value)}
+                required
+              >
+                <option value="">Select a product</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.sku}) - {formatCurrency(p.price)}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="input w-20 text-center"
+                type="number"
+                min="1"
+                value={item.quantity}
+                onChange={(e) => updateItem(item.key, 'quantity', e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                onClick={() => removeRow(item.key)}
+                disabled={items.length === 1}
+                title="Remove"
+              >
+                <Trash2 size={16} />
               </button>
             </div>
           ))}
         </div>
 
         <button type="button" className="btn-secondary" onClick={addRow}>
-          + Add line item
+          <Plus size={15} /> Add line item
         </button>
 
-        <div className="flex items-center justify-between border-t pt-4">
+        <div className="flex items-center justify-between border-t border-slate-200 pt-4">
           <span className="text-sm text-slate-500">Estimated total</span>
-          <span className="text-lg font-semibold">${total.toFixed(2)}</span>
+          <span className="text-xl font-bold text-slate-900">{formatCurrency(total)}</span>
         </div>
 
-        <button type="submit" className="btn-primary w-full" disabled={mutation.isPending}>
+        <button type="submit" className="btn-primary w-full !py-2.5" disabled={mutation.isPending}>
           {mutation.isPending ? 'Placing order...' : 'Place Order'}
         </button>
       </form>
 
       {lastOrder && (
-        <div className="card p-5 mt-4 border-green-200 bg-green-50">
-          <h2 className="font-semibold text-green-700 mb-1">Order confirmed</h2>
-          <p className="text-sm text-slate-600">
-            Order <span className="font-mono">{lastOrder.id}</span> - total ${Number(lastOrder.totalAmount).toFixed(2)} - status{' '}
-            {lastOrder.status}
-          </p>
+        <div className="card p-5 mt-4 border-emerald-200 bg-emerald-50/60 flex gap-3">
+          <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-semibold text-emerald-800 mb-1">Order confirmed</h2>
+            <p className="text-sm text-emerald-900/80">
+              Order <span className="font-mono">{lastOrder.id}</span> - total{' '}
+              <span className="font-semibold">{formatCurrency(lastOrder.totalAmount)}</span> - status{' '}
+              {lastOrder.status}
+            </p>
+          </div>
         </div>
       )}
     </div>
