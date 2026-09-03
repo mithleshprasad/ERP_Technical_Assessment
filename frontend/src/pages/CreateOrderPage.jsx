@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, Plus, Trash2, User } from 'lucide-react';
 import { fetchProducts } from '../api/productApi';
 import { createOrder } from '../api/orderApi';
 import { formatCurrency } from '../utils/format';
@@ -10,11 +10,34 @@ function emptyItem() {
   return { key: crypto.randomUUID(), productId: '', quantity: 1 };
 }
 
+const RECENT_CUSTOMERS_KEY = 'erp_recent_customers';
+
+function loadRecentCustomers() {
+  try {
+    const raw = localStorage.getItem(RECENT_CUSTOMERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentCustomer(customerId) {
+  try {
+    const existing = loadRecentCustomers().filter((c) => c !== customerId);
+    const next = [customerId, ...existing].slice(0, 8);
+    localStorage.setItem(RECENT_CUSTOMERS_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return loadRecentCustomers();
+  }
+}
+
 export default function CreateOrderPage() {
   const queryClient = useQueryClient();
   const [customerId, setCustomerId] = useState('');
   const [items, setItems] = useState([emptyItem()]);
   const [lastOrder, setLastOrder] = useState(null);
+  const [recentCustomers, setRecentCustomers] = useState(loadRecentCustomers);
 
   // Cached for 5 minutes: the product picker doesn't need to refetch on
   // every keystroke elsewhere in the app.
@@ -31,6 +54,7 @@ export default function CreateOrderPage() {
     onSuccess: (order) => {
       toast.success('Order placed successfully');
       setLastOrder(order);
+      setRecentCustomers(saveRecentCustomer(order.customerId));
       setCustomerId('');
       setItems([emptyItem()]);
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
@@ -74,8 +98,41 @@ export default function CreateOrderPage() {
 
       <form onSubmit={handleSubmit} className="card p-6 space-y-5">
         <div>
-          <label className="label">Customer ID</label>
-          <input className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required />
+          <label className="label">Customer</label>
+          <div className="relative">
+            <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="input pl-9"
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              placeholder="e.g. Rahul Kumar, a phone number, or a code like CUST-1001"
+              list="recent-customers"
+              required
+            />
+            <datalist id="recent-customers">
+              {recentCustomers.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+          <p className="text-xs text-slate-400 mt-1.5">
+            There's no customer registration here - type anything that identifies this customer;
+            it's just stored on the order.
+          </p>
+          {recentCustomers.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {recentCustomers.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCustomerId(c)}
+                  className="badge bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700 transition-colors"
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
