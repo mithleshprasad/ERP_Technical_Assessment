@@ -2,7 +2,7 @@ const { JournalEntry, JournalEntryLine } = require('../models');
 const ApiError = require('../utils/ApiError');
 
 /**
- * Double-entry bookkeeping for a completed sales order: debits Accounts
+ * Double-entry bookkeeping for a completed sales order: debits Customer
  * Receivable and credits Sales Revenue for the same amount, so
  * total debit === total credit by construction. Runs inside the caller's
  * transaction so a failure here rolls back the order and inventory
@@ -18,7 +18,7 @@ async function createSalesJournalEntry({ orderId, amount, transaction }) {
 
   const lines = await JournalEntryLine.bulkCreate(
     [
-      { journalEntryId: entry.id, account: 'Accounts Receivable', debit: amount, credit: 0 },
+      { journalEntryId: entry.id, account: 'Customer Receivable', debit: amount, credit: 0 },
       { journalEntryId: entry.id, account: 'Sales Revenue', debit: 0, credit: amount },
     ],
     { transaction }

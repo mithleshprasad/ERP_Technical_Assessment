@@ -297,7 +297,7 @@ change that later turns out to have been rolled back.
 rows per completed order:
 
 ```
-Accounts Receivable   Debit   <order total>
+Customer Receivable   Debit   <order total>
 Sales Revenue         Credit  <order total>
 ```
 
@@ -458,6 +458,18 @@ Fixed-window counter in Redis, 100 requests/minute/user (`middleware/rateLimiter
 - Per the PDF's own RBAC table (Sales User: "create orders; view products" - no mention of viewing
   orders), `GET /orders` is restricted to ADMIN/MANAGER only; Sales Users only get the order
   confirmation returned directly from their own `POST /orders` call.
+- **`GET /inventory/:productId` is left open to every authenticated role**, including Sales User,
+  even though the RBAC table doesn't explicitly grant it to them - the frontend's Inventory page is
+  shown to all roles (`frontend/src/components/Sidebar.jsx`) so a Sales User can check stock before
+  creating an order, which the spec's RBAC table doesn't forbid (it just doesn't mention it either
+  way).
+- **`Inventory.reservedQuantity` is modeled (per the spec's field list) but intentionally never
+  mutated.** Order creation deducts directly from `availableQuantity` in one atomic step (§5) rather
+  than a reserve-then-confirm two-phase flow, because orders here complete synchronously in a single
+  request - there's no cart/checkout hold period where a reservation would need to outlive the
+  request. `reservedQuantity` is kept in the schema to match the spec's field list and to leave room
+  for a future async checkout flow (e.g. "reserve for 15 minutes while payment is processed") without
+  a migration.
 - **Currency is Indian Rupees (INR).** The backend stores plain `DECIMAL` amounts (currency-agnostic);
   the frontend formats every price/total with `Intl.NumberFormat('en-IN', { currency: 'INR' })`
   (`frontend/src/utils/format.js`), which renders the `₹` symbol with Indian lakh/crore digit

@@ -67,7 +67,7 @@ async function addStock({ productId, warehouseId, quantity, note }) {
     await inventory.increment('availableQuantity', { by: quantity, transaction });
 
     await InventoryTransaction.create(
-      { productId, warehouseId: resolvedWarehouseId, type: 'IN', quantity, note: note || null },
+      { productId, warehouseId: resolvedWarehouseId, type: 'IN', quantity, referenceId: 'MANUAL_ADD', note: note || null },
       { transaction }
     );
 
@@ -99,7 +99,7 @@ async function adjustStock({ productId, warehouseId, quantityDelta, note }) {
     }
 
     await InventoryTransaction.create(
-      { productId, warehouseId: resolvedWarehouseId, type: 'ADJUSTMENT', quantity: quantityDelta, note: note || null },
+      { productId, warehouseId: resolvedWarehouseId, type: 'ADJUSTMENT', quantity: quantityDelta, referenceId: 'MANUAL_ADJUSTMENT', note: note || null },
       { transaction }
     );
   });
