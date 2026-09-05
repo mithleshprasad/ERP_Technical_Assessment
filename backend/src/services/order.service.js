@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { sequelize, Product, Order, OrderItem, InventoryTransaction } = require('../models');
+const { sequelize, Product, Order, OrderItem, InventoryTransaction, JournalEntry, JournalEntryLine } = require('../models');
 const ApiError = require('../utils/ApiError');
 const inventoryService = require('./inventory.service');
 const accountingService = require('./accounting.service');
@@ -115,7 +115,16 @@ async function getOrderById(id) {
     include: [{ model: OrderItem, as: 'items', include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'sku'] }] }],
   });
   if (!order) throw ApiError.notFound('Order not found');
-  return order;
+
+  // JournalEntry.referenceId is a loose reference (the spec's field, not a
+  // formal FK) rather than a Sequelize association, so it's looked up
+  // separately instead of via `include`.
+  const journalEntry = await JournalEntry.findOne({
+    where: { referenceId: id },
+    include: [{ model: JournalEntryLine, as: 'lines' }],
+  });
+
+  return { ...order.toJSON(), journalEntry };
 }
 
 async function listOrders({ page, limit, status, customerId, startDate, endDate }) {
