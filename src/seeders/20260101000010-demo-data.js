@@ -3,6 +3,15 @@ const { v4: uuidv4 } = require('uuid');
 
 module.exports = {
   up: async (queryInterface) => {
+    // The Docker/Railway entrypoint runs `db:seed:all` on every container
+    // boot (seeders aren't tracked as "already applied" the way migrations
+    // are), so without this guard a restart re-inserts these rows and dies
+    // on the unique email/SKU constraints. Skip if already seeded.
+    const [existing] = await queryInterface.sequelize.query(
+      "SELECT id FROM users WHERE email = 'admin@erp.test' LIMIT 1"
+    );
+    if (existing.length > 0) return;
+
     const now = new Date();
     const passwordHash = await bcrypt.hash('Password@123', 10);
 
