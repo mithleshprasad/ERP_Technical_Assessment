@@ -5,6 +5,37 @@ double-entry accounting while safely handling concurrent stock updates.
 
 Stack: **Node.js, Express, JavaScript (no TypeScript), MySQL + Sequelize, Redis, Socket.IO, React (Vite), Docker.**
 
+## Contents
+
+- [Live Demo](#live-demo)
+- [1. Project Setup](#1-project-setup)
+- [2. Architecture](#2-architecture)
+- [3. Database Schema](#3-database-schema)
+- [4. API Documentation](#4-api-documentation)
+- [5. Concurrency Handling](#5-concurrency-handling-the-5-units-two-orders-of-5-scenario)
+- [6. Transaction Handling](#6-transaction-handling)
+- [7. Accounting Entry](#7-accounting-entry)
+- [8. Redis Caching](#8-redis-caching)
+- [9. Real-Time Notification & Failed-Operation Handling](#9-real-time-notification--failed-operation-handling)
+- [10. Bulk Import](#10-bulk-import-post-productsimport)
+- [11. Database Optimization](#11-database-optimization-get-orders)
+- [12. API Rate Limiting](#12-api-rate-limiting)
+- [13. Assumptions & Design Decisions](#13-assumptions--design-decisions)
+- [14. Scaling Notes](#14-scaling-notes-100-companies--50000-users)
+- [15. Testing This Yourself](#15-testing-this-yourself)
+
+---
+
+## Live Demo
+
+Frontend: **https://erp-technical-assessment.onrender.com**
+
+Demo accounts (password for all: `Password@123`) are listed in §1 below, or just use the ones
+shown directly on the login page.
+
+> `docker-compose up` (§1) is still the primary, graded way to run this project - the live demo is
+> a convenience, not a substitute.
+
 ---
 
 ## 1. Project Setup
